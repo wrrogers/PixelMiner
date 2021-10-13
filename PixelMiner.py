@@ -1,13 +1,3 @@
-"""
-PixelCNN++ implementation following https://github.com/openai/pixel-cnn/
-
-References:
-    1. Salimans, PixelCNN++ 2017
-    2. van den Oord, Pixel Recurrent Neural Networks 2016a
-    3. van den Oord, Conditional Image Generation with PixelCNN Decoders, 2016c
-    4. Reed 2016 http://www.scottreed.info/files/iclr2017.pdf
-"""
-
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
