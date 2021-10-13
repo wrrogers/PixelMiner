@@ -35,8 +35,6 @@ from parameters import Parameters
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-#torch.cuda.empty_cache()
-
 # --------------------
 # Data
 # --------------------
@@ -138,9 +136,7 @@ def train_epoch(model, dataloader, optimizer, scheduler, loss_fn, epoch, args):
             if args.step % args.log_interval == 0:
                 # Additional Metrics
                 sample = sample_from_discretized_mix_logistic(logits, args.image_dims)
-                #x_sample = sample.detach().cpu().numpy()
                 x_sample = ((sample.clone().detach().cpu().numpy() + 1) / 2) * 255
-                #x_check = x.clone().detach().cpu().numpy()
                 x_check  = ((x.clone().detach().cpu().numpy()      + 1) / 2) * 255
 
                 if args.train_gen:
@@ -178,9 +174,6 @@ def train_epoch(model, dataloader, optimizer, scheduler, loss_fn, epoch, args):
                             "mse": mse,
                    })
 
-                #writer.add_scalar('train_bits_per_dim', loss.item() / (np.log(2) * np.prod(args.image_dims)), args.step)
-                #writer.add_scalar('lr', optimizer.param_groups[0]['lr'], args.step)
-
 @torch.no_grad()
 def evaluate(model, dataloader, loss_fn, args):
     model.eval()
@@ -204,7 +197,6 @@ def generate(model, data_loader, generate_fn, args):
         samples = torch.cat(samples)
     else:
         samples = generate_fn(model, data_loader, args.n_samples, args.image_dims, args.device)
-        #print("SAMPLE INFO:", info)
     return make_grid(samples.cpu(), normalize=True, scale_each=True, nrow=args.n_samples)
 
 def train_and_evaluate(model, train_dataloader, test_dataloader, optimizer, scheduler, loss_fn, generate_fn, args):
@@ -228,7 +220,6 @@ def train_and_evaluate(model, train_dataloader, test_dataloader, optimizer, sche
 
             # evaluate
             eval_loss = evaluate(model, test_dataloader, loss_fn, args)
-            #print('Evaluate bits per dim: {:.3f}'.format(eval_loss.item() / (np.log(2) * np.prod(args.image_dims))))
             print('\n\nEvaluate bits per dim: {:.3f}\n'.format(eval_loss / (np.log(2) * np.prod(args.image_dims))))
             #writer.add_scalar('eval_bits_per_dim', eval_loss.item() / (np.log(2) * np.prod(args.image_dims)), args.step)
 
@@ -342,10 +333,8 @@ if __name__ == '__main__':
 
         if args.restore_opt:
             print('loading optomizer ...')
-            #optimizer.load_state_dict(torch.load(os.path.dirname(args.restore_file) + '/optim_checkpoint.pt', map_location=args.device))
             optimizer.load_state_dict(torch.load(os.path.dirname(args.restore_file) + '/optim_checkpoint.pt', map_location='cpu'))
             if scheduler:
-                #scheduler.load_state_dict(torch.load(os.path.dirname(args.restore_file) + '/sched_checkpoint.pt', map_location=args.device))
                 scheduler.load_state_dict(torch.load(os.path.dirname(args.restore_file) + '/sched_checkpoint.pt', map_location='cpu'))
             args.start_epoch = model_checkpoint['epoch'] + 1
             args.step = model_checkpoint['global_step']
