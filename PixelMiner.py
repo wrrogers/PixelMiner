@@ -64,11 +64,8 @@ class DownShiftedConv3d(nn.Module):
         super().__init__()
         stride2d = stride[1:]
         self.conv2d = Conv2d(n_channels, out_channels, (3, 3), padding=(1,1), stride=stride2d)
-        #print(self.conv2d)
         self.conv3d1 = DownShiftedConv3dSqueeze(n_channels, out_channels, kernel_size)
-        #print(self.conv3d1)
         self.conv3d2 = DownShiftedConv3dSqueeze(out_channels, out_channels, kernel_size, stride=stride)
-        #print(self.conv3d2)
                 
     def forward(self, x):
         #print('input size:', x.size())
@@ -81,11 +78,8 @@ class DownShiftedConv3d(nn.Module):
         xm1 = self.conv3d1(xm1)
         xm2 = self.conv3d1(xm2)
         xm  = torch.cat([xm1, xm2], 2)
-        #print('XM:', xm.size())
         xm  = self.conv3d2(xm)
-        #print('XM:', xm.size())
         xb  = self.conv2d(xb)
-        #print('TOP & BOTTOM:', xt.size(), xb.size())
         xt = xt.unsqueeze(2)
         xb = xb.unsqueeze(2)
         x = torch.cat([xt, xm, xb], 2)
@@ -96,11 +90,8 @@ class DownRightShiftedConv3d(nn.Module):
         super().__init__()
         stride2d = stride[1:]
         self.conv2d = Conv2d(n_channels, out_channels, (3, 3), padding=(1,1), stride=stride2d)
-        #print(self.conv2d)
         self.conv3d1 = DownRightShiftedConv3dSqueeze(n_channels, out_channels, kernel_size)
-        #print(self.conv3d1)
         self.conv3d2 = DownRightShiftedConv3dSqueeze(out_channels, out_channels, kernel_size, stride=stride)
-        #print(self.conv3d2)
                 
     def forward(self, x):
         #print('input size:', x.size())
@@ -113,13 +104,11 @@ class DownRightShiftedConv3d(nn.Module):
         xm1 = self.conv3d1(xm1)
         xm2 = self.conv3d1(xm2)
         xm  = torch.cat([xm1, xm2], 2)
-        #print('XM:', xm.size())
         xm  = self.conv3d2(xm)
         xb  = self.conv2d(xb)
         
         xt = xt.unsqueeze(2)
         xb = xb.unsqueeze(2)
-        #print(xt.size(), xm.size(), xb.size())
         x = torch.cat([xt, xm, xb], 2)
         return x
 
@@ -127,18 +116,14 @@ class DownShiftedConv3dSqueeze(Conv3d):
     def forward(self, x):
         # pad H above and W on each side
         Dk, Hk, Wk = self.kernel_size
-        #print(x.size())
         x = F.pad(x, ((Wk-1)//2, (Wk-1)//2, Hk-1, 0))
-        #print('Squeeze shape:', x.size())
         return super().forward(x)
 
 class DownRightShiftedConv3dSqueeze(Conv3d):
     def forward(self, x):
         # pad above and on left (ie shift input down and right)
         Dk, Hk, Wk = self.kernel_size
-        #print(x.size())
         x = F.pad(x, (Wk-1, 0, Hk-1, 0))
-        #print('Squeeze shape:', x.size())
         return super().forward(x)
 
 class DownShiftedConv3dold(nn.Module):
@@ -167,24 +152,18 @@ class DownRightShiftedConv3dold(nn.Module):
 
 class DownShiftedConvTranspose3d(ConvTranspose3d):
     def forward(self, x):
-        #print('DownShiftedConvTranspose3d', x.size())
         x = super().forward(x)
-        #print('DownShiftedConvTranspose3d', x.size())
         _, _, Dout, Hout, Wout = x.shape
         Dk, Hk, Wk = self.kernel_size
         Ds, Hs, Ws = self.stride
-        #return x[:, :, :Hout - Hk + 1, (Wk-1)//2: Wout - (Wk-1)//2]
         return x[:, :, :, :Hout-Hk+Hs, (Wk)//2: Wout]  # see pytorch doc for ConvTranspose output
 
 class DownRightShiftedConvTranspose3d(ConvTranspose3d):
     def forward(self, x):
-        #print('DownRIGHTShiftedConvTranspose3d', x.size())
         x = super().forward(x)
-        #print('DownRIGHTShiftedConvTranspose3d', x.size())
         _, _, Dout, Hout, Wout = x.shape
         Dk, Hk, Wk = self.kernel_size
         Ds, Hs, Ws = self.stride
-        #return x[:, :, :Hout+1-Hk, :Wout+1-Wk]  # see pytorch doc for ConvTranspose output
         return x[:, :, :, :Hout-Hk+Hs, :Wout-Wk+Ws]  # see pytorch doc for ConvTranspose output
 
 class GatedResidualLayer(nn.Module):
@@ -264,8 +243,6 @@ class PixelCNNpp(nn.Module):
         # output logistic mix params
         #   each component has 3 params for means, 3 params for coefficients, 3 params for logscales, 1 param for logits
         self.output_conv1 = Conv3d(n_channels, 3 * n_logistic_mix, kernel_size=1) # means, coefficients, logscales
-        #self.output_conv1 = Conv3d(n_channels, n_logistic_mix, kernel_size=1) # means, coefficients, logscales
-        #self.output_conv2 = Conv3d(n_channels, n_logistic_mix, kernel_size=1)  # logits
 
     def forward(self, x, h=None):
         batch = x.size(0)
