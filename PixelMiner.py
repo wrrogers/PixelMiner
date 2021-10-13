@@ -31,16 +31,10 @@ def PSNR(original, compressed, max=255):
 # --------------------
 
 def down_shift(x):
-    #B, C, H, W = x.shape
-    #print('Downshift:', x.size())
-    #return torch.cat([torch.zeros([B, C, 1, W], device=x.device), x[:,:,:H-1,:]], 2)
     out = F.pad(x, (0,0,1,0,0,0))[:,:,:,:-1,:]
-    #print('Downshifted:', out.size())
     return out
 
 def right_shift(x):
-    #B, C, H, W = x.shape
-    #return torch.cat([torch.zeros([B, C, H, 1], device=x.device), x[:,:,:,:W-1]], 3)
     return F.pad(x, (1,0,0,0))[:,:,:,:,:-1]
 
 def concat_elu(x):
@@ -375,9 +369,7 @@ def discretized_mix_logistic_loss_1d(x, l):
     cond             = (x < -0.999).float()
     log_probs        = cond * log_cdf_plus + (1. - cond) * inner_out
     log_probs        = torch.sum(log_probs, dim=3) + log_prob_from_logits(logit_probs)
-    
     out = -torch.sum(log_sum_exp(log_probs))
-    
     return out
 
 
@@ -448,8 +440,6 @@ if __name__ == '__main__':
     x = torch.zeros((2,1,3,64,64)).cuda()
     model = PixelCNNpp().cuda()
     l = model(x, None)
-    #t = x[:,:,1,:,:]
     print(l.size())
-    #print(t.shape)
     loss = discretized_mix_logistic_loss_1d(x, l)
     print(loss)
