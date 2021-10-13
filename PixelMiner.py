@@ -19,32 +19,38 @@ from torch.autograd import Variable
 
 from tqdm import tqdm
 
-from math import log10, sqrt
+from math import log10, sqrt 
 
 from parameters import Parameters
 
 args = Parameters()
 
-print('USING PIXELMINER VERSION FINAL v3!')
+print('USING VERSION v3!!!!!!!!!')
 
-def PSNR(original, compressed, max=255):
-    mse = np.mean((original - compressed) ** 2)
-    if(mse == 0):  # MSE is zero means no noise is present in the signal .
-                  # Therefore PSNR have no importance.
+def PSNR(original, compressed, max=255): 
+    mse = np.mean((original - compressed) ** 2) 
+    if(mse == 0):  # MSE is zero means no noise is present in the signal . 
+                  # Therefore PSNR have no importance. 
         return 100
     #max_pixel = 255.0
-    psnr = 20 * log10(max / sqrt(mse))
-    return psnr
+    psnr = 20 * log10(max / sqrt(mse)) 
+    return psnr 
 
 # --------------------
 # Helper functions
 # --------------------
 
 def down_shift(x):
+    #B, C, H, W = x.shape
+    #print('Downshift:', x.size())
+    #return torch.cat([torch.zeros([B, C, 1, W], device=x.device), x[:,:,:H-1,:]], 2)
     out = F.pad(x, (0,0,1,0,0,0))[:,:,:,:-1,:]
+    #print('Downshifted:', out.size())
     return out
 
 def right_shift(x):
+    #B, C, H, W = x.shape
+    #return torch.cat([torch.zeros([B, C, H, 1], device=x.device), x[:,:,:,:W-1]], 3)
     return F.pad(x, (1,0,0,0))[:,:,:,:,:-1]
 
 def concat_elu(x):
@@ -74,21 +80,28 @@ class DownShiftedConv3d(nn.Module):
         super().__init__()
         stride2d = stride[1:]
         self.conv2d = Conv2d(n_channels, out_channels, (3, 3), padding=(1,1), stride=stride2d)
+        #print(self.conv2d)
         self.conv3d1 = DownShiftedConv3dSqueeze(n_channels, out_channels, kernel_size)
+        #print(self.conv3d1)
         self.conv3d2 = DownShiftedConv3dSqueeze(out_channels, out_channels, kernel_size, stride=stride)
-
+        #print(self.conv3d2)
+                
     def forward(self, x):
+        #print('input size:', x.size())
         xt  = x[:, :, 0, :, :]
         xm1 = x[:, :, :2, :, :]
         xm2 = x[:, :, 1:, :, :]
         xb  = x[:, :, -1, :, :]
-
+        
         xt  = self.conv2d(xt)
         xm1 = self.conv3d1(xm1)
         xm2 = self.conv3d1(xm2)
         xm  = torch.cat([xm1, xm2], 2)
+        #print('XM:', xm.size())
         xm  = self.conv3d2(xm)
+        #print('XM:', xm.size())
         xb  = self.conv2d(xb)
+        #print('TOP & BOTTOM:', xt.size(), xb.size())
         xt = xt.unsqueeze(2)
         xb = xb.unsqueeze(2)
         x = torch.cat([xt, xm, xb], 2)
@@ -99,24 +112,30 @@ class DownRightShiftedConv3d(nn.Module):
         super().__init__()
         stride2d = stride[1:]
         self.conv2d = Conv2d(n_channels, out_channels, (3, 3), padding=(1,1), stride=stride2d)
+        #print(self.conv2d)
         self.conv3d1 = DownRightShiftedConv3dSqueeze(n_channels, out_channels, kernel_size)
+        #print(self.conv3d1)
         self.conv3d2 = DownRightShiftedConv3dSqueeze(out_channels, out_channels, kernel_size, stride=stride)
-
+        #print(self.conv3d2)
+                
     def forward(self, x):
+        #print('input size:', x.size())
         xt  = x[:, :, 0, :, :]
         xm1 = x[:, :, :2, :, :]
         xm2 = x[:, :, 1:, :, :]
         xb  = x[:, :, -1, :, :]
-
+        
         xt  = self.conv2d(xt)
         xm1 = self.conv3d1(xm1)
         xm2 = self.conv3d1(xm2)
         xm  = torch.cat([xm1, xm2], 2)
+        #print('XM:', xm.size())
         xm  = self.conv3d2(xm)
         xb  = self.conv2d(xb)
-
+        
         xt = xt.unsqueeze(2)
         xb = xb.unsqueeze(2)
+        #print(xt.size(), xm.size(), xb.size())
         x = torch.cat([xt, xm, xb], 2)
         return x
 
@@ -142,7 +161,7 @@ class DownShiftedConv3dold(nn.Module):
     def __init__(self, n_channels, out_channels, kernel_size, stride=(1,1,1)):
         super().__init__()
         self.conv = DownShiftedConv3dSqueeze(n_channels, out_channels, kernel_size, stride=stride)
-
+    
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.conv(x)
@@ -154,7 +173,7 @@ class DownRightShiftedConv3dold(nn.Module):
     def __init__(self, n_channels, out_channels, kernel_size, stride=(1,1,1)):
         super().__init__()
         self.conv = DownRightShiftedConv3dSqueeze(n_channels, out_channels, kernel_size, stride=stride)
-
+        
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.conv(x)
@@ -164,18 +183,24 @@ class DownRightShiftedConv3dold(nn.Module):
 
 class DownShiftedConvTranspose3d(ConvTranspose3d):
     def forward(self, x):
+        #print('DownShiftedConvTranspose3d', x.size())
         x = super().forward(x)
+        #print('DownShiftedConvTranspose3d', x.size())
         _, _, Dout, Hout, Wout = x.shape
         Dk, Hk, Wk = self.kernel_size
         Ds, Hs, Ws = self.stride
+        #return x[:, :, :Hout - Hk + 1, (Wk-1)//2: Wout - (Wk-1)//2]
         return x[:, :, :, :Hout-Hk+Hs, (Wk)//2: Wout]  # see pytorch doc for ConvTranspose output
 
 class DownRightShiftedConvTranspose3d(ConvTranspose3d):
     def forward(self, x):
+        #print('DownRIGHTShiftedConvTranspose3d', x.size())
         x = super().forward(x)
+        #print('DownRIGHTShiftedConvTranspose3d', x.size())
         _, _, Dout, Hout, Wout = x.shape
         Dk, Hk, Wk = self.kernel_size
         Ds, Hs, Ws = self.stride
+        #return x[:, :, :Hout+1-Hk, :Wout+1-Wk]  # see pytorch doc for ConvTranspose output
         return x[:, :, :, :Hout-Hk+Hs, :Wout-Wk+Ws]  # see pytorch doc for ConvTranspose output
 
 class GatedResidualLayer(nn.Module):
@@ -194,11 +219,8 @@ class GatedResidualLayer(nn.Module):
             self.proj_h = nn.Linear(n_cond_classes, 2*n_channels)
 
     def forward(self, x, a=None, h=None):
-
         c1 = self.c1(self.relu_fn(x))
-
         if a is not None:  # shortcut connection if auxiliary input 'a' is given
-
             c1 = c1 + self.c1c(self.relu_fn(a))
 
         c1 = self.relu_fn(c1)
@@ -208,7 +230,6 @@ class GatedResidualLayer(nn.Module):
         if h is not None:
             c2 += self.proj_h(h)[:,:,None,None]
         a, b = c2.chunk(2,1)
-
         out = x + a * torch.sigmoid(b)
         return out
 
@@ -255,17 +276,20 @@ class PixelCNNpp(nn.Module):
             *[GatedResidualLayer(DownRightShiftedConv3d, n_channels, (2,2,2), drop_rate, 2*n_channels, n_cond_classes) for _ in range(n_res_layers+1)],
             DownRightShiftedConvTranspose3d(n_channels, n_channels, kernel_size=(1,2,2), stride=(1,2,2)),
             *[GatedResidualLayer(DownRightShiftedConv3d, n_channels, (2,2,2), drop_rate, 2*n_channels, n_cond_classes) for _ in range(n_res_layers+1)]])
-
+        
         # output logistic mix params
+        #   each component has 3 params for means, 3 params for coefficients, 3 params for logscales, 1 param for logits
         self.output_conv1 = Conv3d(n_channels, 3 * n_logistic_mix, kernel_size=1) # means, coefficients, logscales
+        #self.output_conv1 = Conv3d(n_channels, n_logistic_mix, kernel_size=1) # means, coefficients, logscales
+        #self.output_conv2 = Conv3d(n_channels, n_logistic_mix, kernel_size=1)  # logits
 
     def forward(self, x, h=None):
         batch = x.size(0)
-        height, width = x.size(-2), x.size(-1)
+        height, width = x.size(-2), x.size(-1) 
         # add channel of ones to distinguish image from padding later on
 
         x = F.pad(x, (0,0,0,0,0,0,0,1), value=1)
-
+        
         # input layer
         u_list  = [down_shift(self.u_input(x))]
 
@@ -273,25 +297,19 @@ class PixelCNNpp(nn.Module):
 
         # up pass
         for u_module, ul_module in zip(self.up_u_modules, self.up_ul_modules):
-            #print('--------------------- ', 'Gated:', isinstance(u_module, GatedResidualLayer))
             u_list  += [u_module(u_list[-1], h=h) if isinstance(u_module, GatedResidualLayer) else u_module(u_list[-1])]
-            #print('--------------------- ', 'Gated:', isinstance(ul_module, GatedResidualLayer))
             ul_list += [ul_module(ul_list[-1], u_list[-1], h)] if isinstance(ul_module, GatedResidualLayer) else [ul_module(ul_list[-1])]
 
         # down pass
         u = u_list.pop()
         ul = ul_list.pop()
 
-
         for n, (u_module, ul_module) in enumerate(zip(self.down_u_modules, self.down_ul_modules)):
-            #print('--------------------- ', n, 'Gated:', isinstance(u_module, GatedResidualLayer))
             u  = u_module(u, u_list.pop(), h) if isinstance(u_module, GatedResidualLayer) else u_module(u)
-            #print('--------------------- ', n, 'Gated:', isinstance(ul_module, GatedResidualLayer))
             ul = ul_module(u, torch.cat([u, ul_list.pop()],1), h) if isinstance(ul_module, GatedResidualLayer) else ul_module(ul)
 
         x = self.output_conv1(F.elu(ul))
         x = x.view(batch, -1, height, width)
-
         return x
 
 # --------------------
@@ -325,7 +343,7 @@ def discretized_mix_logistic_loss_1d(x, l):
     """ log-likelihood for mixture of discretized logistics, assumes the data has been rescaled to [-1,1] interval """
     x = x[:, :, 1].squeeze().unsqueeze(1)
     l = l.squeeze()
-
+    
     # Pytorch ordering
     x = x.permute(0, 2, 3, 1)
     l = l.permute(0, 2, 3, 1)
@@ -334,8 +352,7 @@ def discretized_mix_logistic_loss_1d(x, l):
 
     # here and below: unpacking the params of the mixture of logistics
     nr_mix = int(ls[-1] / 3)
-    #nr_mix = args.n_logistic_mix
-
+    
     logit_probs = l[:, :, :, :nr_mix]
     l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 2]) # 2 for mean, scale
     means = l[:, :, :, :, :nr_mix]
@@ -368,9 +385,9 @@ def discretized_mix_logistic_loss_1d(x, l):
     cond             = (x < -0.999).float()
     log_probs        = cond * log_cdf_plus + (1. - cond) * inner_out
     log_probs        = torch.sum(log_probs, dim=3) + log_prob_from_logits(logit_probs)
-
+    
     out = -torch.sum(log_sum_exp(log_probs))
-
+    
     return out
 
 
@@ -380,17 +397,17 @@ loss_fn = discretized_mix_logistic_loss_1d
 # Sampling and generation functions
 # --------------------
 
-def sample_from_discretized_mix_logistic_1d(l):
+def sample_from_discretized_mix_logistic_1d(l):    
     # Pytorch ordering
     l = l.permute(0, 2, 3, 1)
     ls = [int(y) for y in l.size()]
     xs = ls[:-1] + [1] #[3]
-
+    
     nr_mix = int(ls[-1] / 3)
 
     # unpack parameters
     logit_probs = l[:, :, :, :nr_mix]
-
+    
     l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 2]) # for mean, scale
 
     # sample mixture indicator from softmax
@@ -399,11 +416,11 @@ def sample_from_discretized_mix_logistic_1d(l):
     temp.uniform_(1e-5, 1. - 1e-5)
     temp = logit_probs.data - torch.log(- torch.log(temp))
     _, argmax = temp.max(dim=3)
-
+   
     one_hot = to_one_hot(argmax, nr_mix)
     sel = one_hot.view(xs[:-1] + [1, nr_mix])
     # select logistic parameters
-    means = torch.sum(l[:, :, :, :, :nr_mix] * sel, dim=4)
+    means = torch.sum(l[:, :, :, :, :nr_mix] * sel, dim=4) 
     log_scales = torch.clamp(torch.sum(
         l[:, :, :, :, nr_mix:2 * nr_mix] * sel, dim=4), min=-7.)
     u = torch.FloatTensor(means.size())
@@ -422,13 +439,13 @@ def generate_fn(model, data_loader, n_samples, image_dims, device, h=None):
     out[:, 2, :, :] = torch.zeros(128,128)
     with tqdm(total=(image_dims[1]*image_dims[2]), desc='Generating {} images'.format(out.size(0))) as pbar:
         for yi in range(image_dims[1]):
-            if yi < args.ymin:
+            if yi < args.ymin: 
+                #print(yi)
                 continue
             for xi in range(image_dims[2]):
                 logits = model(out, h)
                 sample = sample_from_discretized_mix_logistic_1d(logits, image_dims)[:,:,yi,xi]
                 out[:,2,yi,xi] = sample[:,2]
-
                 pbar.update()
     return out
 
@@ -441,6 +458,8 @@ if __name__ == '__main__':
     x = torch.zeros((2,1,3,64,64)).cuda()
     model = PixelCNNpp().cuda()
     l = model(x, None)
+    #t = x[:,:,1,:,:]
     print(l.size())
+    #print(t.shape)
     loss = discretized_mix_logistic_loss_1d(x, l)
     print(loss)
